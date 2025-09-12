@@ -1,9 +1,9 @@
 # ADAML_NASATurbofanLevelB2
 Advanced Data Analysis and Machine Learning - Project Work 1
 
-Part 1 - in progress
+Part 1 - done
 
-Part 2 - empty
+Part 2 - in progress
 
 Part 3 - empty
 
