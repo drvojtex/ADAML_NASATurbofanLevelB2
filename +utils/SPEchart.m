@@ -9,6 +9,8 @@ function SPEchart(sensorDataStd, k, alpha)
     SPE = sum(residuals.^2, 2);
 
     % Critical value (Jackson & Mudholkar)
+    % DOI: https://doi.org/10.1080/00401706.1979.10489779
+    % DOI: https://doi.org/10.1016/j.eswa.2012.12.020
     theta1 = sum(latent(k+1:end));
     theta2 = sum(latent(k+1:end).^2);
     theta3 = sum(latent(k+1:end).^3);

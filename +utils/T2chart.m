@@ -6,7 +6,8 @@ function T2chart(sensorDataStd, k, alpha)
     % Hotelling's T2
     T2 = sum((score(:,1:k).^2) ./ latent(1:k)', 2);
 
-    % Critical value
+    % Critical value (Hotelling T2)
+    % DOI: https://doi.org/10.1016/j.cie.2019.03.021
     Fcrit = finv(alpha, k, n - k);
     T2crit = k*(n-1)*(n+1)/(n*(n-k)) * Fcrit;
 
