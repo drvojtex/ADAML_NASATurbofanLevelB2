@@ -4,66 +4,106 @@ function T2chart(dataTable, k, alpha)
 % Syntax:  T2chart(dataTable, k, alpha)
 %
 % Inputs:
-%    dataTable - MATLAB table containing the dataset. Columns with 'Sensor' in
-%                the name are used for PCA. Must include a column 'Unit'.
-%    k         - Number of principal components to use in PCA
-%    alpha     - Significance level for Hotelling's T² critical value
+%    dataTable - MATLAB table with sensor data. Columns containing 'Sensor'
+%                are used for PCA. Must include a column 'Unit' for time series.
+%    k         - Number of principal components to use in PCA.
+%    alpha     - Significance level (e.g., 0.05) for Hotelling's T² limit.
 %
 % Outputs:
-%    This function produces a figure showing Hotelling's T² for each Unit
-%    as colored curves, with a critical T² line. It also prints the percentage
-%    of observations below the critical limit.
+%    Figure showing Hotelling's T² for each Unit, critical limit line,
+%    and printed percentage of observations below the limit.
 
-    % Select columns containing 'Sensor'
+    %------------------------------------------
+    % Select sensor columns
+    %------------------------------------------
     sensorCols = contains(dataTable.Properties.VariableNames, 'Sensor');
     sensorData = dataTable{:, sensorCols};
+    units      = dataTable.Unit;
+    n          = size(sensorData,1);
 
-    % Standardize sensor data (z-score)
-    sensorDataStd = zscore(sensorData);
+    %------------------------------------------
+    % Robust per-unit standardization (median/MAD)
+    %------------------------------------------
+    sensorDataStd = zeros(size(sensorData));
+    uList = unique(units);
 
+    for u = uList'
+        idx = (units == u);
+        % Robust median/MAD scaling per feature within the Unit
+        sensorDataStd(idx,:) = normalize(sensorData(idx,:), 'center', 'median', 'scale', 'mad');
+    end
+
+    %------------------------------------------
+    % Remove constant or near-constant sensors
+    %------------------------------------------
+    varThresh = 1e-12;
+    keepCols = var(sensorDataStd,0,1) > varThresh;
+    if sum(~keepCols) > 0
+        warning('Removing %d sensor(s) with near-zero variance.', sum(~keepCols));
+    end
+    sensorDataStd = sensorDataStd(:, keepCols);
+
+    %------------------------------------------
     % Perform PCA
-    [n, ~] = size(sensorDataStd);
+    %------------------------------------------
     [~, score, latent] = pca(sensorDataStd);
 
+    %------------------------------------------
+    % Ensure k does not exceed available PCs
+    %------------------------------------------
+    maxPC = min(size(score,2), rank(sensorDataStd));
+    if k > maxPC
+        warning('Requested k = %d is too large. Using k = %d instead.', k, maxPC);
+        k = maxPC;
+    end
+
+    %------------------------------------------
     % Compute Hotelling's T²
+    %------------------------------------------
     T2 = sum((score(:,1:k).^2) ./ latent(1:k)', 2);
 
-    % Compute critical value for Hotelling's T²
-    % DOI: https://doi.org/10.1016/j.cie.2019.03.021
-    Fcrit = finv(alpha, k, n - k);
-    T2crit = k*(n-1)*(n+1)/(n*(n-k)) * Fcrit;
+    %------------------------------------------
+    % Saturate T² values at 50
+    %------------------------------------------
+    T2 = min(T2, 50);
 
-    % Create figure and hold for multiple curves
+    % Critical Hotelling's T² value
+    Fcrit = finv(1 - alpha, k, n - k);
+    T2crit = k * (n - 1) / (n - k) * Fcrit;
+
+    %------------------------------------------
+    % Plot T² curves for each Unit
+    %------------------------------------------
     figure; hold on;
-    units = unique(dataTable.Unit);
-    numUnits = numel(units);
+    numUnits = numel(uList);
+    cmap = parula(numUnits);  % color gradient
 
-    % Create a color gradient like a heatmap
-    cmap = parula(numUnits);  % parula provides a smooth gradient
-
-    % Plot each Unit as a separate curve with color from gradient
     for i = 1:numUnits
-        idx = dataTable.Unit == units(i);
-        x = 1:sum(idx);  % X-axis = index within the Unit
+        idx = (units == uList(i));
+        x = 1:sum(idx);  % index within Unit
         plot(x, T2(idx), '-', 'Color', cmap(i,:), 'LineWidth', 1.5);
     end
 
-    % Plot critical T² value as dashed black line
+    % Critical T² line
     yline(T2crit, 'k--', 'LineWidth', 2);
 
-    % Label axes and title
     xlabel('Observation Index within Unit');
     ylabel('Hotelling''s T^2');
-    title(sprintf('Hotelling''s T^2 Plot using first %d components', k));
+    title(sprintf('Hotelling''s T^2 Plot (k = %d PCs)', k));
 
-    % Add colorbar to indicate Unit number
+    % Colorbar for Units
     colormap(parula(numUnits));
     c = colorbar;
     c.Label.String = 'Unit Number';
-    clim([units(1), units(end)]); % Map first to last Unit to color gradient
-    c.Ticks = round(linspace(units(1), units(end), 5)); % e.g., 5 tick labels
+    if isnumeric(uList)
+        clim([uList(1), uList(end)]);
+        c.Ticks = round(linspace(uList(1), uList(end), min(numUnits,5)));
+    end
 
-    % Compute and display percentage of observations below the T² limit
+    %------------------------------------------
+    % Percentage of observations below T² limit
+    %------------------------------------------
     percent_below_T2 = mean(T2 < T2crit) * 100;
-    fprintf('%.2f %% of observations are below the Hotelling''s T^2 limit.\n', percent_below_T2);
+    fprintf('%.2f %% of observations are below the Hotelling''s T^2 limit.\n', ...
+            percent_below_T2);
 end

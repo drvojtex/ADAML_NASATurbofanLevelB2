@@ -4,34 +4,73 @@ function SPEchart(dataTable, k, alpha)
 % Syntax:  SPEchart(dataTable, k, alpha)
 %
 % Inputs:
-%    dataTable - MATLAB table containing the dataset. Columns with 'Sensor' in
-%                the name are used for PCA. Must include a column 'Unit'.
-%    k         - Number of principal components to use in PCA
-%    alpha     - Significance level for SPE critical value
+%    dataTable - MATLAB table with sensor data. Columns containing 'Sensor'
+%                are used for PCA. Must include a column 'Unit' for time series.
+%    k         - Number of principal components to use in PCA.
+%    alpha     - Significance level (e.g., 0.05) for SPE limit.
 %
 % Outputs:
-%    This function produces a figure showing SPE for each Unit
-%    as colored curves, with a critical SPE line. It also prints the percentage
-%    of observations below the critical limit.
+%    Figure showing SPE for each Unit, critical limit line,
+%    and printed percentage of observations below the limit.
 
-    % Select columns containing 'Sensor'
+    %------------------------------------------
+    % Select sensor columns
+    %------------------------------------------
     sensorCols = contains(dataTable.Properties.VariableNames, 'Sensor');
     sensorData = dataTable{:, sensorCols};
+    units      = dataTable.Unit;
+    n          = size(sensorData,1);
 
-    % Standardize sensor data (z-score)
-    sensorDataStd = zscore(sensorData);
+    %------------------------------------------
+    % Robust per-unit standardization (median/MAD)
+    %------------------------------------------
+    sensorDataStd = zeros(size(sensorData));
+    uList = unique(units);
 
+    for u = uList'
+        idx = (units == u);
+        sensorDataStd(idx,:) = normalize(sensorData(idx,:), 'center', 'median', 'scale', 'mad');
+    end
+
+    %------------------------------------------
+    % Remove constant or near-constant sensors
+    %------------------------------------------
+    varThresh = 1e-12;
+    keepCols = var(sensorDataStd,0,1) > varThresh;
+    if sum(~keepCols) > 0
+        warning('Removing %d sensor(s) with near-zero variance.', sum(~keepCols));
+    end
+    sensorDataStd = sensorDataStd(:, keepCols);
+
+    %------------------------------------------
     % Perform PCA
+    %------------------------------------------
     [coeff, score, latent] = pca(sensorDataStd);
 
+    %------------------------------------------
+    % Ensure k does not exceed available PCs
+    %------------------------------------------
+    maxPC = min(size(score,2), rank(sensorDataStd));
+    if k > maxPC
+        warning('Requested k = %d is too large. Using k = %d instead.', k, maxPC);
+        k = maxPC;
+    end
+
+    %------------------------------------------
     % Compute SPE (Squared Prediction Error)
-    Xhat = score(:,1:k) * coeff(:,1:k)';  % Reconstruction using first k PCs
+    %------------------------------------------
+    Xhat = score(:,1:k) * coeff(:,1:k)';
     residuals = sensorDataStd - Xhat;
     SPE = sum(residuals.^2, 2);
 
-    % Critical value (Jackson & Mudholkar)
-    % DOI: https://doi.org/10.1080/00401706.1979.10489779
-    % DOI: https://doi.org/10.1016/j.eswa.2012.12.020
+    %------------------------------------------
+    % Saturate SPE values at 50
+    %------------------------------------------
+    SPE = min(SPE, 50);
+
+    %------------------------------------------
+    % Critical SPE value (Jackson & Mudholkar)
+    %------------------------------------------
     theta1 = sum(latent(k+1:end));
     theta2 = sum(latent(k+1:end).^2);
     theta3 = sum(latent(k+1:end).^3);
@@ -40,41 +79,39 @@ function SPEchart(dataTable, k, alpha)
     SPEcrit = theta1 * ( (ca*sqrt(2*theta2*h0^2))/theta1 + 1 + ...
         (theta2*h0*(h0-1))/(theta1^2) )^(1/h0);
 
-    % Plot
+    %------------------------------------------
+    % Plot SPE curves for each Unit
+    %------------------------------------------
     figure; hold on;
-    units = unique(dataTable.Unit);
-    numUnits = numel(units);
-
-    % Color gradient for multiple Units
+    numUnits = numel(uList);
     cmap = parula(numUnits);
 
-    % Plot each Unit as a separate curve
     for i = 1:numUnits
-        idx = dataTable.Unit == units(i);
-        x = 1:sum(idx);  % X-axis = observation index within Unit
+        idx = (units == uList(i));
+        x = 1:sum(idx);
         plot(x, SPE(idx), '-', 'Color', cmap(i,:), 'LineWidth', 1.5);
     end
 
-    % Plot critical SPE value as dashed black line
+    % Critical SPE line
     yline(SPEcrit, 'k--', 'LineWidth', 2);
 
-    % Label axes and title
     xlabel('Observation Index within Unit');
     ylabel('SPE (Squared Prediction Error)');
-    title(sprintf('SPE (Q-statistic) Plot using first %d components', k));
+    title(sprintf('SPE (Q-statistic) Plot using first %d PCs', k));
 
-    % Colorbar to indicate Unit number
+    % Colorbar for Units
     colormap(parula(numUnits));
     c = colorbar;
     c.Label.String = 'Unit Number';
-    clim([units(1), units(end)]);
-    c.Ticks = round(linspace(units(1), units(end), 5));
+    if isnumeric(uList)
+        clim([uList(1), uList(end)]);
+        c.Ticks = round(linspace(uList(1), uList(end), min(numUnits,5)));
+    end
 
-    % Compute and display percentage of observations below the SPE limit
+    %------------------------------------------
+    % Percentage of observations below SPE limit
+    %------------------------------------------
     percent_below_SPE = mean(SPE < SPEcrit) * 100;
     fprintf('%.2f %% of observations are below the SPE limit.\n', percent_below_SPE);
+
 end
-
-
-
-
