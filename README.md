@@ -45,7 +45,7 @@ Each row is a single measurement at a given operational cycle.
 ### 2️⃣ Data Pretreatment and modelling plan
 - Data centering and scaling
 - Handling missing and extreme values
-- **in progress - main2.mlx, documentation/Part2.pdf**
+- **done - main2.mlx, documentation/Part2.pdf**
 
 ### 3️⃣ Modeling
 - **Modeling goal:** Predict the missing sensor output based on the others.
@@ -90,7 +90,7 @@ ADAML_NASATurbofanLevelB2/
 │   │   • Identification of variable correlations and latent structures
 │
 ├─ main2.mlx
-│   ├─ MATLAB Live Script – Part 2 (work in progress)
+│   ├─ MATLAB Live Script – Part 2
 │   │   • Data pretreatment (scaling, centering)
 │
 ├─ LICENSE
