@@ -22,7 +22,7 @@ classdef RegressionMetrics
     end
 
     methods
-        %% --- Constructor ---
+        % Constructor
         function obj = RegressionMetrics(y_true, y_pred, y_train)
             arguments
                 y_true (:,:) double
@@ -43,14 +43,14 @@ classdef RegressionMetrics
             obj.y_train = y_train;
         end
 
-        %% --- RMSE ---
+        % RMSE
         function rmse = computeRMSE(obj)
             % Computes Root Mean Squared Error (RMSE) per target dimension
             errors = obj.y_true - obj.y_pred;
             rmse = sqrt(mean(errors.^2, 1));
         end
 
-        %% --- R2 ---
+        % R2
         function R2 = computeR2(obj)
             % Computes the coefficient of determination (R2)
             SS_res = sum((obj.y_true - obj.y_pred).^2, 1);
@@ -58,7 +58,7 @@ classdef RegressionMetrics
             R2 = 1 - (SS_res ./ SS_tot);
         end
 
-        %% --- Q2 ---
+        % Q2
         function Q2 = computeQ2(obj)
             % Computes the predictive squared correlation coefficient (Q2)
             if isempty(obj.y_train)
@@ -71,7 +71,7 @@ classdef RegressionMetrics
             Q2 = 1 - (SS_res ./ SS_pred);
         end
 
-        %% --- Summary ---
+        % Summary
         function summary(obj, comment)
             fprintf('--- %s Regression Metrics ---\n', comment);
             rmse = mean(obj.computeRMSE());

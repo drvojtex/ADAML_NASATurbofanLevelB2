@@ -54,6 +54,8 @@ Each row is a single measurement at a given operational cycle.
   - PCA/PLS for dimensionality reduction and latent variable selection
 - Model calibration, validation, and testing
 - Performance evaluation using RMSE, MAE, and R²
+- Analysis of residuals autocorrelation and heteroskedasticity
+- **done - main3.mlx, documentation/Part3.pdf**
 
 ---
 
@@ -92,6 +94,11 @@ ADAML_NASATurbofanLevelB2/
 ├─ main2.mlx
 │   ├─ MATLAB Live Script – Part 2
 │   │   • Data pretreatment (scaling, centering)
+|
+├─ main3.mlx
+│   ├─ MATLAB Live Script – Part 3
+│   │   • Models fit
+│   │   • Residuals analysis
 │
 ├─ LICENSE
 │   ├─ MIT license specifying open-source usage and distribution rights
